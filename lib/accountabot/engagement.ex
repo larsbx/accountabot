@@ -36,9 +36,12 @@ defmodule Accountabot.Engagement do
 
   # -- decide ---------------------------------------------------------------
 
-  def decide(nil, {:open, %{id: _, type: type, client: _} = meta}) do
+  def decide(nil, {:open, %{id: id, type: type, client: _} = meta}) when is_binary(id) do
+    meta =
+      meta |> Map.take([:id, :type, :client, :policy]) |> Map.put_new(:policy, Policy.config())
+
     if type in Workflow.types(),
-      do: {:ok, [{:opened, Map.put_new(meta, :policy, Policy.config())} | enter(type, :intake)]},
+      do: {:ok, [{:opened, meta} | enter(type, :intake)]},
       else: {:error, {:unknown_workflow, type}}
   end
 
@@ -46,14 +49,22 @@ defmodule Accountabot.Engagement do
   def decide(%__MODULE__{}, {:open, _}), do: {:error, :already_open}
   def decide(%__MODULE__{status: :closed}, _), do: {:error, :closed}
 
-  def decide(%__MODULE__{} = s, {:raise, %{id: id} = attrs}) do
-    if Map.has_key?(s.items, id) do
-      {:error, {:duplicate_item, id}}
-    else
-      item =
-        struct!(Item, Map.merge(attrs, %{tier: Policy.classify(attrs, s.policy), stage: s.stage}))
+  def decide(%__MODULE__{} = s, {:raise, %{id: id, kind: kind} = attrs}) when is_binary(id) do
+    cond do
+      Map.has_key?(s.items, id) ->
+        {:error, {:duplicate_item, id}}
 
-      {:ok, [{:raised, item} | if(item.tier == :auto, do: [{:applied, id}], else: [])]}
+      kind not in Policy.kinds() ->
+        {:error, {:unknown_kind, kind}}
+
+      true ->
+        item =
+          struct!(
+            Item,
+            Map.merge(attrs, %{tier: Policy.classify(attrs, s.policy), stage: s.stage})
+          )
+
+        {:ok, [{:raised, item} | if(item.tier == :auto, do: [{:applied, id}], else: [])]}
     end
   end
 

@@ -18,11 +18,15 @@ defmodule Accountabot.Policy do
     :client_advice
   ]
   @auto [:categorize, :bank_match, :document_request, :accrual_flag]
+  @proposal [:adjusting_entry, :reclassification, :journal_entry, :accrual, :write_off]
 
   @type tier :: :auto | :propose | :reserved
 
   def reserved_kinds, do: @reserved
   def auto_kinds, do: @auto
+
+  @doc "The closed vocabulary of item kinds."
+  def kinds, do: @reserved ++ @auto ++ @proposal
 
   def config(opts \\ []),
     do: Map.merge(%{materiality: 1_000_00, min_confidence: 0.95}, Map.new(opts))

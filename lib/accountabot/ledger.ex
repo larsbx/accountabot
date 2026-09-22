@@ -45,10 +45,15 @@ defmodule Accountabot.Ledger do
 
   def entries(%__MODULE__{entries: e}), do: Enum.reverse(e)
 
+  @doc "The chart of accounts as `{code, name, type}` triples."
+  def chart(%__MODULE__{accounts: a}),
+    do: Enum.map(a, fn {code, {name, type}} -> {code, name, type} end)
+
   defp signed(:debit, amt), do: amt
   defp signed(:credit, amt), do: -amt
 
-  defp validate(l, %{id: id, lines: lines}) do
+  @doc "Checks `entry` against `ledger` without posting it."
+  def validate(%__MODULE__{} = l, %{id: id, lines: lines}) do
     cond do
       MapSet.member?(l.ids, id) ->
         {:error, {:duplicate_entry, id}}

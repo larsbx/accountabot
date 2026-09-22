@@ -107,25 +107,15 @@ defmodule Accountabot.EngagementTest do
     assert Engagement.replay(log ++ log2) == s
   end
 
-  test "∀ random command sequences: every stage gate was CPA-approved before leaving it" do
-    types = Workflow.types()
+  test "∀ random histories: every stage gate was CPA-approved before leaving it" do
+    check(&engagement_log/0, fn {type, log} -> assert_gates_respected(type, log) end)
+  end
 
-    gen = fn ->
-      type = one_of(types)
-      {type, Enum.map(1..int(1, 40), fn i -> random_cmd(i) end)}
-    end
+  test "raising an unknown item kind is rejected" do
+    {s, _} = run([open()])
 
-    check(gen, fn {type, cmds} ->
-      {_, log} =
-        Enum.reduce(cmds, run([open(type)]), fn cmd, {s, log} ->
-          case Engagement.handle(s, resolve_target(s, cmd)) do
-            {:ok, s, ev} -> {s, log ++ ev}
-            {:error, _} -> {s, log}
-          end
-        end)
-
-      assert_gates_respected(type, log)
-    end)
+    assert Engagement.decide(s, {:raise, item("x", kind: :vibes)}) ==
+             {:error, {:unknown_kind, :vibes}}
   end
 
   # -- helpers --------------------------------------------------------------
@@ -151,30 +141,6 @@ defmodule Accountabot.EngagementTest do
       elem(Engagement.handle(s, {:resolve, i.id, :approve, @cpa}), 1)
     end)
   end
-
-  defp random_cmd(i) do
-    actor = one_of([:agent, @cpa])
-
-    one_of([
-      {:advance, actor},
-      {:raise,
-       item("r#{i}",
-         kind: one_of([:categorize, :adjusting_entry, :sign_off]),
-         amount: int(0, 2_000_00),
-         confidence: float01()
-       )},
-      {:resolve, :any_open, one_of([:approve, :reject]), actor}
-    ])
-  end
-
-  defp resolve_target(s, {:resolve, :any_open, d, a}) do
-    case s.items |> Map.values() |> Enum.filter(&(&1.status == :open)) do
-      [] -> {:advance, :agent}
-      open -> {:resolve, Enum.random(open).id, d, a}
-    end
-  end
-
-  defp resolve_target(_, cmd), do: cmd
 
   defp assert_gates_respected(type, log) do
     Enum.reduce(log, %{stage: nil, approved: MapSet.new(), kinds: %{}}, fn
