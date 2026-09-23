@@ -6,7 +6,9 @@ defmodule Accountabot.EventStoreContract do
       alias Accountabot.EventStore
 
       setup do
-        {:ok, store: unquote(opts[:store]).(), stream: "s-#{Base.encode16(:crypto.strong_rand_bytes(8))}"}
+        {:ok,
+         store: unquote(opts[:store]).(),
+         stream: "s-#{Base.encode16(:crypto.strong_rand_bytes(8))}"}
       end
 
       defp rec(n), do: %{type: "t#{n}", data: %{"n" => n, "nested" => %{"k" => [1, "two"]}}}

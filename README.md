@@ -23,6 +23,28 @@ Nothing is auto-applied unless its kind is on the allowlist. `Policy.classify/2`
   Events record the policy config and the assigned tier, so replaying them doesn't depend on later policy changes.
 - `Inbox`: shows what needs the CPA, for each channel.
 
+## Onboarding → adaptive agent and UI
+
+The CPA answers a short questionnaire (`Onboarding.questions/0`, defined as data, with conditional
+questions). `Profile.from_answers/1` derives everything else from the answers:
+
+| Question | Drives |
+|---|---|
+| Where do you review? (`web`/`mobile`/`email`/`sms`) | the channels notifications go through |
+| What do you need to see? | `card_sections`: the sections an item card shows |
+| How often? (`realtime`/`daily`/`weekly`) | whether proposals notify immediately or go in the digest, and the digest schedule |
+| Interrupt for reserved items? (asked only if relevant) | whether licence-only items notify immediately |
+| How much autonomy? (`cautious`/`balanced`/`hands_off`) | `Policy` materiality and confidence thresholds |
+
+Answers are an event stream per CPA (`Cpas`), so revising an answer changes behaviour and keeps an audit
+trail. Invariants:
+- Reserved work always reaches a chosen surface.
+- No route uses a surface the CPA didn't choose.
+- Autonomy is monotone: anything cautious auto-applies, balanced does too, and so on up to hands_off.
+
+`Inbox` exposes `queue/1`, `alerts/2`, `digest/2` and `card/2` as view models, so any UI renders
+from the same profile.
+
 ## Persistence
 
 - `EventStore`: append-only streams with optimistic concurrency
@@ -30,8 +52,9 @@ Nothing is auto-applied unless its kind is on the allowlist. `Policy.classify/2`
   both pass the same contract test, including racing writers.
 - `Engagement.Codec`: turns events into JSON rows. It decodes against a closed vocabulary,
   so reading from the database never creates atoms.
-- `Engagements`: load = replay(read). Execute = decide + append at the version loaded from,
-  and after a conflict the command is decided again against fresh state.
+- `Aggregate`: runs any `Decider` against a stream. Load = replay(read). Execute = decide + append at
+  the version loaded from, and after a conflict the command is decided again against fresh state. `Engagements` and `Cpas`
+  are thin wrappers around it.
 - `Books`: a ledger per client. `Ledger.validate/2` runs before any write. The schema
   independently enforces balanced entries (a deferred constraint trigger) and append-only
   `events`/`journal_*` rows (no UPDATE, DELETE or TRUNCATE).
@@ -49,8 +72,9 @@ createdb accountabot_test   # optional: without Postgres, the :postgres tests ar
 mix test
 ```
 
-Invariants are checked over 500 seeded random cases each. Two mutations were used to check the tests:
-breaking the gate check fails the engagement property, and dropping the version check fails the store contract.
+Invariants are checked over 500 seeded random cases each. Four mutations were used to check the tests: breaking
+the gate check, dropping the version check, silencing interrupts and inverting the autonomy thresholds each
+make a property fail.
 
 ## Roadmap
 

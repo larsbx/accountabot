@@ -17,7 +17,12 @@ exclude =
     e ->
       Logger.configure(level: :none)
       GenServer.stop(pool)
-      IO.puts(:stderr, "⚠ Postgres unavailable (#{Exception.message(e)}); excluding :postgres tests")
+
+      IO.puts(
+        :stderr,
+        "⚠ Postgres unavailable (#{Exception.message(e)}); excluding :postgres tests"
+      )
+
       [:postgres]
   end
 

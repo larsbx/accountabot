@@ -16,6 +16,7 @@ defmodule Accountabot.Engagement do
   the stage has an approved item raised in that stage.
   """
 
+  use Accountabot.Decider
   alias Accountabot.{Policy, Workflow}
 
   defstruct [:id, :type, :client, :policy, :stage, status: :active, items: %{}]
@@ -27,15 +28,12 @@ defmodule Accountabot.Engagement do
 
   @type actor :: :agent | {:cpa, term}
 
-  def handle(state, cmd) do
-    with {:ok, events} <- decide(state, cmd),
-         do: {:ok, Enum.reduce(events, state, &evolve(&2, &1)), events}
-  end
-
-  def replay(events), do: Enum.reduce(events, nil, &evolve(&2, &1))
+  @impl true
+  def initial, do: nil
 
   # -- decide ---------------------------------------------------------------
 
+  @impl true
   def decide(nil, {:open, %{id: id, type: type, client: _} = meta}) when is_binary(id) do
     meta =
       meta |> Map.take([:id, :type, :client, :policy]) |> Map.put_new(:policy, Policy.config())
@@ -125,6 +123,7 @@ defmodule Accountabot.Engagement do
 
   # -- evolve ---------------------------------------------------------------
 
+  @impl true
   def evolve(nil, {:opened, m}),
     do: %__MODULE__{id: m.id, type: m.type, client: m.client, policy: m.policy}
 

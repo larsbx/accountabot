@@ -1,25 +1,35 @@
 defmodule Accountabot.Inbox do
   @moduledoc """
-  Projection of what needs the CPA, per channel:
+  What needs the CPA, shaped by their `Accountabot.Profile`:
 
-      reserved ∧ open → dashboard, sms     (act now)
-      propose  ∧ open → dashboard, digest  (batchable)
-      applied (auto)  → digest             (FYI; CPA may reverse)
+  - `queue/1`: every open item, reserved first, then by amount (what the review surface lists)
+  - `alerts/2` and `digest/2`: items to push now, and items for the next digest
+  - `card/2`: the view model for one item, with only the sections the CPA asked for
   """
+
+  alias Accountabot.Profile
 
   @tier_rank %{reserved: 0, propose: 1, auto: 2}
 
-  def channels(%{tier: :reserved, status: :open}), do: [:dashboard, :sms]
-  def channels(%{tier: :propose, status: :open}), do: [:dashboard, :digest]
-  def channels(%{status: :applied}), do: [:digest]
-  def channels(_), do: []
+  def notification(%{status: :open, tier: t}, %Profile{notify: n})
+      when t in [:reserved, :propose],
+      do: n[t]
 
-  @doc "`{engagement_id, item}` pairs for `channel`, reserved first, then by amount desc."
-  def queue(engagements, channel) do
+  def notification(%{status: :applied}, %Profile{notify: n}), do: n.auto
+  def notification(_, _), do: :none
+
+  def queue(engagements), do: select(engagements, &(&1.status == :open))
+  def alerts(engagements, p), do: select(engagements, &match?({:now, _}, notification(&1, p)))
+  def digest(engagements, p), do: select(engagements, &match?({:digest, _}, notification(&1, p)))
+
+  def card(item, %Profile{card_sections: sections}),
+    do: %{id: item.id, kind: item.kind, tier: item.tier, amount: item.amount, sections: sections}
+
+  defp select(engagements, pred) do
     for(
       e <- engagements,
       i <- Enum.sort_by(Map.values(e.items), & &1.id),
-      channel in channels(i),
+      pred.(i),
       do: {e.id, i}
     )
     |> Enum.sort_by(fn {_, i} -> {@tier_rank[i.tier], -i.amount} end)
