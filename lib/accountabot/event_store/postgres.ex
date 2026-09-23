@@ -8,6 +8,18 @@ defmodule Accountabot.EventStore.Postgres do
   @behaviour Accountabot.EventStore
 
   @impl true
+  def streams(conn, prefix) do
+    %{rows: rows} =
+      Postgrex.query!(
+        conn,
+        "SELECT DISTINCT stream_id FROM events WHERE starts_with(stream_id, $1)",
+        [prefix]
+      )
+
+    List.flatten(rows)
+  end
+
+  @impl true
   def read(conn, stream) do
     %{rows: rows} =
       Postgrex.query!(

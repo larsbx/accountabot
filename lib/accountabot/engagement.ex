@@ -8,7 +8,8 @@ defmodule Accountabot.Engagement do
 
   Commands
     {:open, %{id, type, client}}
-    {:raise, %{id, kind, amount, confidence, reversible?}}   — tier assigned by Policy
+    {:raise, %{id, kind, amount, confidence, reversible?, evidence?}}  — tier assigned by Policy;
+                                                             evidence is keyed by card section
     {:resolve, item_id, :approve | :reject, actor}           — CPA only
     {:advance, actor}
 
@@ -17,13 +18,23 @@ defmodule Accountabot.Engagement do
   """
 
   use Accountabot.Decider
-  alias Accountabot.{Policy, Workflow}
+  alias Accountabot.{Onboarding, Policy, Workflow}
 
-  defstruct [:id, :type, :client, :policy, :stage, status: :active, items: %{}]
+  defstruct [:id, :type, :client, :cpa_id, :policy, :stage, status: :active, items: %{}]
 
   defmodule Item do
     @moduledoc false
-    defstruct [:id, :kind, :amount, :confidence, :reversible?, :tier, :stage, status: :open]
+    defstruct [
+      :id,
+      :kind,
+      :amount,
+      :confidence,
+      :reversible?,
+      :tier,
+      :stage,
+      status: :open,
+      evidence: %{}
+    ]
   end
 
   @type actor :: :agent | {:cpa, term}
@@ -36,7 +47,10 @@ defmodule Accountabot.Engagement do
   @impl true
   def decide(nil, {:open, %{id: id, type: type, client: _} = meta}) when is_binary(id) do
     meta =
-      meta |> Map.take([:id, :type, :client, :policy]) |> Map.put_new(:policy, Policy.config())
+      meta
+      |> Map.take([:id, :type, :client, :cpa_id, :policy])
+      |> Map.put_new(:policy, Policy.config())
+      |> Map.put_new(:cpa_id, nil)
 
     if type in Workflow.types(),
       do: {:ok, [{:opened, meta} | enter(type, :intake)]},
@@ -54,6 +68,10 @@ defmodule Accountabot.Engagement do
 
       kind not in Policy.kinds() ->
         {:error, {:unknown_kind, kind}}
+
+      (unknown =
+         Map.keys(Map.get(attrs, :evidence, %{})) -- Onboarding.question(:evidence).options) != [] ->
+        {:error, {:unknown_evidence, unknown}}
 
       true ->
         item =
@@ -125,7 +143,7 @@ defmodule Accountabot.Engagement do
 
   @impl true
   def evolve(nil, {:opened, m}),
-    do: %__MODULE__{id: m.id, type: m.type, client: m.client, policy: m.policy}
+    do: %__MODULE__{id: m.id, type: m.type, client: m.client, cpa_id: m.cpa_id, policy: m.policy}
 
   def evolve(s, {:entered, stage}), do: %{s | stage: stage}
   def evolve(s, {:raised, item}), do: put_in(s.items[item.id], item)

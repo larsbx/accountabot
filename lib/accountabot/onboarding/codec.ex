@@ -10,15 +10,11 @@ defmodule Accountabot.Onboarding.Codec do
       Enum.find(Onboarding.questions(), &(Atom.to_string(&1.id) == q)) ||
         raise ArgumentError, "unknown question #{inspect(q)}"
 
-    value = if is_list(v), do: Enum.map(v, &option(&1, question)), else: option(v, question)
-
-    if Onboarding.valid?(question, value),
-      do: {:answered, question.id, value},
-      else: raise(ArgumentError, "invalid answer to #{q}")
+    with {:ok, value} <- Onboarding.cast(question, v),
+         true <- Onboarding.valid?(question, value) do
+      {:answered, question.id, value}
+    else
+      _ -> raise ArgumentError, "invalid answer to #{q}: #{inspect(v)}"
+    end
   end
-
-  defp option(s, q),
-    do:
-      Enum.find(q.options, &(Atom.to_string(&1) == s)) ||
-        raise(ArgumentError, "unknown option #{inspect(s)}")
 end

@@ -30,6 +30,13 @@ defmodule Accountabot.EventStoreContract do
         assert EventStore.read(st, s) == {:ok, [rec(1)], 1}
       end
 
+      test "lists stream ids by prefix", %{store: st, stream: s} do
+        {:ok, 1} = EventStore.append(st, s <> "-a", 0, [rec(1)])
+        {:ok, 1} = EventStore.append(st, s <> "-b", 0, [rec(1)])
+        assert Enum.sort(EventStore.streams(st, s <> "-")) == [s <> "-a", s <> "-b"]
+        assert EventStore.streams(st, s <> "-zzz") == []
+      end
+
       test "streams are isolated", %{store: st, stream: s} do
         {:ok, 1} = EventStore.append(st, s, 0, [rec(1)])
         assert EventStore.read(st, s <> "-other") == {:ok, [], 0}

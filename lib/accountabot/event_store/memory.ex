@@ -7,6 +7,14 @@ defmodule Accountabot.EventStore.Memory do
   def start_link(opts \\ []), do: Agent.start_link(fn -> %{} end, opts)
 
   @impl true
+  def streams(srv, prefix),
+    do:
+      Agent.get(
+        srv,
+        &(&1 |> Map.keys() |> Enum.filter(fn k -> String.starts_with?(k, prefix) end))
+      )
+
+  @impl true
   def read(srv, stream) do
     rs = Agent.get(srv, &Map.get(&1, stream, []))
     {:ok, rs, length(rs)}

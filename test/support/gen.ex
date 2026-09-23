@@ -19,7 +19,12 @@ defmodule Accountabot.Gen do
   @doc "A random but valid engagement history: `{type, events}`."
   def engagement_log do
     type = one_of(Workflow.types())
-    {:ok, s, log} = Engagement.handle(nil, {:open, %{id: "eng", type: type, client: "c"}})
+
+    {:ok, s, log} =
+      Engagement.handle(
+        nil,
+        {:open, %{id: "eng", type: type, client: "c", cpa_id: one_of([nil, "cpa-1"])}}
+      )
 
     {_, log} =
       Enum.reduce(1..int(1, 40), {s, log}, fn i, {s, log} ->
@@ -44,7 +49,12 @@ defmodule Accountabot.Gen do
            kind: one_of([:categorize, :adjusting_entry, :sign_off]),
            amount: int(0, 2_000_00),
            confidence: float01(),
-           reversible?: bool()
+           reversible?: bool(),
+           evidence:
+             one_of([
+               %{},
+               %{summary: "s#{i}", ledger_impact: [%{"account" => "1000", "debit" => i}]}
+             ])
          }}
 
       {:resolve, [_ | _]} ->

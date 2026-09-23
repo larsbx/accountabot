@@ -39,6 +39,18 @@ defmodule Accountabot.ProfileTest do
     assert p.card_sections == [:summary, :source_documents, :agent_reasoning]
   end
 
+  test "describe/1 explains the derived behaviour in plain language" do
+    {:ok, p} = Profile.from_answers(@base)
+
+    assert Profile.describe(p) == [
+             "Sign-offs, filings and other decisions only you can make: sent to you right away by SMS.",
+             "Proposed entries and adjustments: collected in your weekly digest on the web.",
+             "Routine work I do on my own: listed in your weekly digest on the web, where you can reverse it.",
+             "I act alone only below $1,000.00 and at ≥ 95% confidence; everything else waits for you.",
+             "Each item shows: summary, ledger impact."
+           ]
+  end
+
   test "autonomy answer sets the agent's policy" do
     for level <- [:cautious, :balanced, :hands_off] do
       {:ok, p} = Profile.from_answers(%{@base | autonomy: level})

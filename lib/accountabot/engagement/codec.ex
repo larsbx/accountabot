@@ -1,11 +1,11 @@
 defmodule Accountabot.Engagement.Codec do
   @moduledoc """
-  Engagement events ⇄ JSON-shaped records. Every atom is decoded against a
+  Engagement events ⇄ JSON-shaped records. Evidence values must be JSON-shaped. Every atom is decoded against a
   closed vocabulary, so stored data can never mint atoms; an unknown value
   raises `ArgumentError`.
   """
 
-  alias Accountabot.{Engagement.Item, Policy, Workflow}
+  alias Accountabot.{Engagement.Item, Onboarding, Policy, Workflow}
 
   @tiers [:auto, :propose, :reserved]
   @statuses [:open, :applied, :approved, :rejected]
@@ -27,6 +27,7 @@ defmodule Accountabot.Engagement.Codec do
        id: d["id"],
        type: atom(d["type"], Workflow.types()),
        client: d["client"],
+       cpa_id: d["cpa_id"],
        policy: %{
          materiality: d["policy"]["materiality"],
          min_confidence: d["policy"]["min_confidence"]
@@ -46,7 +47,11 @@ defmodule Accountabot.Engagement.Codec do
        reversible?: d["reversible?"],
        tier: atom(d["tier"], @tiers),
        stage: atom(d["stage"], stages()),
-       status: atom(d["status"], @statuses)
+       status: atom(d["status"], @statuses),
+       evidence:
+         Map.new(d["evidence"] || %{}, fn {k, v} ->
+           {atom(k, Onboarding.question(:evidence).options), v}
+         end)
      }}
   end
 

@@ -15,6 +15,9 @@ defmodule Accountabot.EventStore do
   @callback append(GenServer.server(), String.t(), non_neg_integer, [record]) ::
               {:ok, pos_integer} | {:error, :wrong_expected_version}
 
+  @callback streams(GenServer.server(), prefix :: String.t()) :: [String.t()]
+
+  def streams({mod, srv}, prefix), do: mod.streams(srv, prefix)
   def read({mod, srv}, stream), do: mod.read(srv, stream)
 
   def append({mod, srv}, stream, expected, [_ | _] = records)

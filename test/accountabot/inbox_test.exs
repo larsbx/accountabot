@@ -50,8 +50,40 @@ defmodule Accountabot.InboxTest do
     assert Enum.any?(Inbox.digest(engs, p), &match?({"e2", %{id: "auto"}}, &1))
   end
 
-  test "cards carry exactly the sections the CPA asked for", %{profile: p} do
-    [{_, item} | _] = Inbox.queue([eng("e1", [])])
-    assert %{sections: [:summary, :ledger_impact], tier: :reserved} = Inbox.card(item, p)
+  test "cards carry exactly the sections the CPA asked for, with evidence or nil", %{profile: p} do
+    [{_, item} | _] =
+      Inbox.queue([
+        eng("e1", [
+          %{
+            id: "x",
+            amount: 9_999_00,
+            kind: :adjusting_entry,
+            evidence: %{ledger_impact: ["DR 6000"]}
+          }
+        ])
+      ])
+
+    assert %{tier: :reserved, sections: [{:summary, "Accept engagement"}]} =
+             Inbox.card(item, p)
+
+    {_, x} =
+      Enum.find(
+        Inbox.queue([
+          eng("e1", [
+            %{
+              id: "x",
+              amount: 9_999_00,
+              kind: :adjusting_entry,
+              evidence: %{ledger_impact: ["DR 6000"]}
+            }
+          ])
+        ]),
+        &match?({_, %{id: "x"}}, &1)
+      )
+
+    assert Inbox.card(x, p).sections == [
+             {:summary, "Adjusting entry · $9,999.00"},
+             {:ledger_impact, ["DR 6000"]}
+           ]
   end
 end

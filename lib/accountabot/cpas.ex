@@ -10,7 +10,7 @@ defmodule Accountabot.Cpas do
 
   def profile(store, cpa_id), do: store |> answers(cpa_id) |> Profile.from_answers()
 
-  defp answers(store, cpa_id), do: store |> Aggregate.load(spec(cpa_id)) |> elem(1)
+  def answers(store, cpa_id), do: store |> Aggregate.load(spec(cpa_id)) |> elem(1)
 
   defp spec(id), do: %{decider: Onboarding, codec: Onboarding.Codec, stream: "cpa-#{id}"}
 end

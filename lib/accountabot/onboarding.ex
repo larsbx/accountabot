@@ -66,6 +66,30 @@ defmodule Accountabot.Onboarding do
   defp holds?({id, :not_in, xs}, a), do: Map.has_key?(a, id) and a[id] not in xs
   defp holds?({id, :intersects, xs}, a), do: Enum.any?(List.wrap(a[id]), &(&1 in xs))
 
+  @doc """
+  Casts raw strings (from a form or JSON) to an answer for `q` without minting
+  atoms: `{:ok, value}` or `:error`. The result still has to pass `valid?/2`.
+  """
+  def cast(%{type: :multi} = q, raws) when is_list(raws), do: cast_all(q, raws)
+  def cast(%{type: :single} = q, raw) when is_binary(raw), do: option(q, raw)
+  def cast(_, _), do: :error
+
+  defp cast_all(q, raws) do
+    Enum.reduce_while(raws, {:ok, []}, fn r, {:ok, acc} ->
+      case option(q, r) do
+        {:ok, v} -> {:cont, {:ok, acc ++ [v]}}
+        :error -> {:halt, :error}
+      end
+    end)
+  end
+
+  defp option(q, raw) do
+    case Enum.find(q.options, &(Atom.to_string(&1) == raw)) do
+      nil -> :error
+      v -> {:ok, v}
+    end
+  end
+
   @doc "Whether `value` is a well-formed answer to `q`."
   def valid?(%{type: :single, options: o}, v), do: v in o
 

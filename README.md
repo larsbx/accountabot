@@ -45,6 +45,24 @@ trail. Invariants:
 `Inbox` exposes `queue/1`, `alerts/2`, `digest/2` and `card/2` as view models, so any UI renders
 from the same profile.
 
+## Web (`AccountabotWeb`, Phoenix LiveView)
+
+No JS toolchain: the LiveView client is served straight from the deps.
+
+- `/onboarding/:cpa`: one question at a time with progress, conditional questions, and validation of
+  every value against the options (no atoms created from form input). It ends with `Profile.describe/1`, a plain-language
+  account of how the agent will work, and every answer can be changed.
+- `/review/:cpa`: grouped by who must act: *only you can decide*, *waiting for your approval*, *done on my own
+  (reverse anything)*. Cards show exactly the evidence sections the CPA chose. Approve, reject and reverse are
+  recorded as `{:cpa, id}`, and screens update live over PubSub as the agent raises work.
+  A CPA who hasn't finished onboarding is sent to onboarding.
+
+```sh
+mix phx.server          # dev: in-memory store, demo engagements for CPA "demo" → http://localhost:4000
+```
+
+> ⚠ The CPA id in the URL is **not authentication**. Add sign-in before exposing these routes beyond localhost.
+
 ## Persistence
 
 - `EventStore`: append-only streams with optimistic concurrency
@@ -84,4 +102,4 @@ make a property fail.
    contra entries.
 4. Adapters (one behaviour each, with fakes in tests): bank feeds, document intake (Gmail/Drive), QBO import.
 5. Classifier: an LLM proposes `{kind, amount, confidence, evidence}`, and `Policy` decides the tier.
-6. Channels: the CPA review surface (to be decided), SMS approvals and the weekly digest email.
+6. ~~CPA review surface~~ ✓ (web). Next: authentication, then SMS/push/email delivery of `Inbox.alerts/2` and `Inbox.digest/2`.

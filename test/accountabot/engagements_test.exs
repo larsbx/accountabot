@@ -52,4 +52,17 @@ defmodule Accountabot.EngagementsTest do
     {:ok, s} = Engagements.load(st, "e1")
     assert Enum.all?(1..6, &Map.has_key?(s.items, "i#{&1}"))
   end
+
+  test "for_cpa returns only that CPA's engagements", %{store: st} do
+    for {id, cpa} <- [{"a", "cpa-1"}, {"b", "cpa-2"}, {"c", "cpa-1"}] do
+      {:ok, _, _} =
+        Engagements.execute(
+          st,
+          id,
+          {:open, %{id: id, type: :onboarding, client: "c", cpa_id: cpa}}
+        )
+    end
+
+    assert st |> Engagements.for_cpa("cpa-1") |> Enum.map(& &1.id) |> Enum.sort() == ["a", "c"]
+  end
 end

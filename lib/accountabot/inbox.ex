@@ -7,7 +7,7 @@ defmodule Accountabot.Inbox do
   - `card/2`: the view model for one item, with only the sections the CPA asked for
   """
 
-  alias Accountabot.Profile
+  alias Accountabot.{Money, Profile}
 
   @tier_rank %{reserved: 0, propose: 1, auto: 2}
 
@@ -22,8 +22,27 @@ defmodule Accountabot.Inbox do
   def alerts(engagements, p), do: select(engagements, &match?({:now, _}, notification(&1, p)))
   def digest(engagements, p), do: select(engagements, &match?({:digest, _}, notification(&1, p)))
 
-  def card(item, %Profile{card_sections: sections}),
-    do: %{id: item.id, kind: item.kind, tier: item.tier, amount: item.amount, sections: sections}
+  @doc """
+  `sections` is `[{section, content | nil}]` in the CPA's order; the summary falls back to kind and amount.
+  A missing section is shown (as `nil`) only on items with a monetary effect, where a gap in the
+  evidence is itself worth seeing; decisions with no amount show only what exists.
+  """
+  def card(item, %Profile{card_sections: sections}) do
+    content = Map.put_new(item.evidence, :summary, default_summary(item))
+
+    %{
+      id: item.id,
+      kind: item.kind,
+      tier: item.tier,
+      amount: item.amount,
+      sections: for(s <- sections, item.amount > 0 or content[s] != nil, do: {s, content[s]})
+    }
+  end
+
+  defp default_summary(%{kind: k, amount: a}) do
+    title = k |> Profile.humanize() |> String.capitalize()
+    if a > 0, do: "#{title} · #{Money.format(a)}", else: title
+  end
 
   defp select(engagements, pred) do
     for(

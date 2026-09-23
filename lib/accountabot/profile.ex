@@ -12,7 +12,7 @@ defmodule Accountabot.Profile do
       card_sections = [:summary | evidence]      policy = policy_for(autonomy)
   """
 
-  alias Accountabot.{Onboarding, Policy}
+  alias Accountabot.{Money, Onboarding, Policy}
 
   defstruct [:surfaces, :cadence, :digest, :autonomy, :notify, :card_sections, :policy]
 
@@ -55,4 +55,25 @@ defmodule Accountabot.Profile do
       policy: policy_for(a.autonomy)
     }
   end
+
+  @doc "The derived behaviour in plain language, for the end of onboarding and the settings screen."
+  def describe(%__MODULE__{notify: n, policy: pol, card_sections: cs, digest: d}) do
+    [
+      "Sign-offs, filings and other decisions only you can make: #{route(n.reserved, "collected in", d)}.",
+      "Proposed entries and adjustments: #{route(n.propose, "collected in", d)}.",
+      "Routine work I do on my own: #{route(n.auto, "listed in", d)}, where you can reverse it.",
+      "I act alone only below #{Money.format(pol.materiality)} and at ≥ #{round(pol.min_confidence * 100)}% confidence; everything else waits for you.",
+      "Each item shows: #{Enum.map_join(cs, ", ", &humanize/1)}."
+    ]
+  end
+
+  def humanize(atom), do: atom |> Atom.to_string() |> String.replace("_", " ")
+
+  defp route({:now, via}, _, _), do: "sent to you right away #{via(via)}"
+  defp route({:digest, via}, verb, d), do: "#{verb} your #{d} digest #{via(via)}"
+
+  defp via(:web), do: "on the web"
+  defp via(:mobile), do: "on your phone"
+  defp via(:email), do: "by email"
+  defp via(:sms), do: "by SMS"
 end

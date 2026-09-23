@@ -111,6 +111,21 @@ defmodule Accountabot.EngagementTest do
     check(&engagement_log/0, fn {type, log} -> assert_gates_respected(type, log) end)
   end
 
+  test "items carry evidence keyed by card section; unknown sections are rejected" do
+    {s, _} = run([open()])
+
+    ev = %{
+      summary: "Coffee at Blue Bottle",
+      ledger_impact: [%{"account" => "6100", "debit" => 450}]
+    }
+
+    {s, _} = run_from(s, [{:raise, item("a", evidence: ev)}])
+    assert s.items["a"].evidence == ev
+
+    assert Engagement.decide(s, {:raise, item("b", evidence: %{gossip: "x"})}) ==
+             {:error, {:unknown_evidence, [:gossip]}}
+  end
+
   test "raising an unknown item kind is rejected" do
     {s, _} = run([open()])
 
